@@ -16,9 +16,11 @@ import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 
-import java.util.HashSet;
+import org.apache.http.message.BasicNameValuePair;
+
+import java.net.URI;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
 
 import xyz.monkeytong.hongbao.utils.HongbaoSignature;
 import xyz.monkeytong.hongbao.utils.PowerUtil;
@@ -235,93 +237,23 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
         if (node == null)
             return null;
         List<AccessibilityNodeInfo> list = node.findAccessibilityNodeInfosByViewId("com.tencent.mm:id/a1d");
-        Log.e("xx8","xx8---->"+list.size());
         if (!list.isEmpty()){
             AccessibilityNodeInfo parent = list.get(0);
             List<AccessibilityNodeInfo> nickNode = parent.findAccessibilityNodeInfosByViewId("com.tencent.mm:id/ia");
             List<AccessibilityNodeInfo> msgNode = parent.findAccessibilityNodeInfosByViewId("com.tencent.mm:id/ib");
-            Log.e("xx9","index---->"+parent.getChildCount()+"---"+list.size());
             if (!nickNode.isEmpty()&&!msgNode.isEmpty()){
                 AccessibilityNodeInfo nikeName = nickNode.get(nickNode.size()-1);
                 AccessibilityNodeInfo content = msgNode.get(msgNode.size()-1);
                 String str = nikeName.getText()+":"+content.getText();
                 if (temp==null||!temp.equals(str)){
                     temp = str;
-                    sendStr(str.trim());
+                    client.send(str);
+                    Log.e("xx10",temp);
                 }
 
             }
         }
 
-        /*if (!chatContent.isEmpty()){
-            for (String str : chatContent){
-                Log.e("xx10","xx10---->"+str+":"+chatContent.size());
-            }
-        }*/
-
-
-
-//        List<AccessibilityNodeInfo> list1 = node.findAccessibilityNodeInfosByViewId("com.tencent.mm:id/ia");
-//        if (list1!=null&&!list1.isEmpty()){
-//            AccessibilityNodeInfo nikeName = list1.get(list1.size()-1);
-//            Log.e("xx8","xx8---->"+nikeName.getText());
-            /*for (AccessibilityNodeInfo nodeInfo :list1){
-                if ("android.widget.TextView".equals(nodeInfo.getClassName())){
-                    Log.e("xx8","xx8---->"+nodeInfo.getText()
-                    );
-                }
-            }*/
-//        }
-//        List<AccessibilityNodeInfo> list = node.findAccessibilityNodeInfosByViewId("com.tencent.mm:id/ib");
-//        if (list!=null&&!list.isEmpty()){
-//            AccessibilityNodeInfo content = list.get(list.size()-1);
-//            Log.e("xx9","xx9---->"+content.getText());
-            /*for (AccessibilityNodeInfo nodeInfo :list){
-                if ("android.widget.TextView".equals(nodeInfo.getClassName())){
-                    Log.e("xx9","xx9---->"+nodeInfo.getText()
-                    );
-                }
-            }*/
-//        }
-
-//        if (list1!=null&&!list1.isEmpty()){
-//            AccessibilityNodeInfo nikeName = list1.get(list1.size()-1);
-//            Log.e("xx8","xx8---->"+nikeName.getText());
-            /*for (AccessibilityNodeInfo nodeInfo :list1){
-                if ("android.widget.TextView".equals(nodeInfo.getClassName())){
-                    Log.e("xx8","xx8---->"+nodeInfo.getText()
-                    );
-                }
-            }*/
-//        }
-        /*if (list!=null&&!list.isEmpty()&&list1!=null&&!list1.isEmpty()){
-            AccessibilityNodeInfo content = list.get(list.size()-1);
-            AccessibilityNodeInfo nikeName = list1.get(list1.size()-1);
-            String str = nikeName.getText()+":"+content.getText();
-            chatContent.add(str);
-            Log.e("xx10","xx10---->"+str);
-        }*/
-
-        //非layout元素
-        /*if (node.getChildCount() == 0) {
-            if ("android.widget.TextView".equals(node.getClassName())){
-                Log.e("xx7","xx7---->"+node.getText()
-                        +"-----"+node.getWindowId()
-                );
-            }
-            if ("android.widget.Button".equals(node.getClassName()))
-                return node;
-            else
-                return null;
-        }
-
-        //layout元素，遍历找button
-        AccessibilityNodeInfo button;
-        for (int i = 0; i < node.getChildCount(); i++) {
-            button = findOpenButton(node.getChild(i));
-            if (button != null)
-                return button;
-        }*/
         return null;
     }
 
@@ -334,7 +266,7 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
         }
 
         /* 聊天会话窗口，遍历节点匹配“领取红包”和"查看红包" */
-        AccessibilityNodeInfo node1 = (sharedPreferences.getBoolean("pref_watch_self", false)) ?
+       /* AccessibilityNodeInfo node1 = (sharedPreferences.getBoolean("pref_watch_self", false)) ?
                 this.getTheLastNode(WECHAT_VIEW_OTHERS_CH, WECHAT_VIEW_SELF_CH) : this.getTheLastNode(WECHAT_VIEW_OTHERS_CH);
         if (node1 != null &&
                 (currentActivityName.contains(WECHAT_LUCKMONEY_CHATTING_ACTIVITY)
@@ -346,17 +278,17 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
                 Log.d("sig", this.signature.toString());
             }
             return;
-        }
+        }*/
 
         /* 戳开红包，红包还没抢完，遍历节点匹配“拆红包” */
         AccessibilityNodeInfo node2 = findOpenButton(this.rootNodeInfo);
-        if (node2 != null && "android.widget.Button".equals(node2.getClassName()) && currentActivityName.contains(WECHAT_LUCKMONEY_RECEIVE_ACTIVITY)) {
+        /*if (node2 != null && "android.widget.Button".equals(node2.getClassName()) && currentActivityName.contains(WECHAT_LUCKMONEY_RECEIVE_ACTIVITY)) {
             mUnpackNode = node2;
             mUnpackCount += 1;
             return;
         }
 
-        /* 戳开红包，红包已被抢完，遍历节点匹配“红包详情”和“手慢了” */
+        *//* 戳开红包，红包已被抢完，遍历节点匹配“红包详情”和“手慢了” *//*
         boolean hasNodes = this.hasOneOfThoseNodes(
                 WECHAT_BETTER_LUCK_CH, WECHAT_DETAILS_CH,
                 WECHAT_BETTER_LUCK_EN, WECHAT_DETAILS_EN, WECHAT_EXPIRES_CH);
@@ -368,7 +300,7 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
             mUnpackCount = 0;
             performGlobalAction(GLOBAL_ACTION_BACK);
             signature.commentString = generateCommentString();
-        }
+        }*/
     }
 
     private void sendComment() {
@@ -430,68 +362,39 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
     public void onServiceConnected() {
         super.onServiceConnected();
         this.watchFlagsFromPreference();
-        connect();
-    }
-
-    private void refreshUI(final boolean isConnected) {
-        Log.e("refreshUI",isConnected ? "断开" : "连接");
+        client.connect();
     }
 
     private String temp;
-
-    private TcpClient client = new TcpClient() {
-
+    List<BasicNameValuePair> extraHeaders = Arrays.asList(
+            new BasicNameValuePair("Cookie", "session=abcd"));
+    WebSocketClient client = new WebSocketClient(URI.create("ws://10.1.4.71:8002/receiveMessage"), new WebSocketClient.Listener() {
         @Override
-        public void onConnect(SocketTransceiver transceiver) {
-            refreshUI(true);
-        }
-
-        @Override
-        public void onDisconnect(SocketTransceiver transceiver) {
-            refreshUI(false);
+        public void onConnect() {
+            Log.e("xxx", "Connected!");
         }
 
         @Override
-        public void onConnectFailed() {
-            Log.e("error","连接失败");
+        public void onMessage(String message) {
+            Log.e("xxx", String.format("Got string message! %s", message));
         }
 
         @Override
-        public void onReceive(SocketTransceiver transceiver, final String s) {
-            Log.e("onReceive",s);
+        public void onMessage(byte[] data) {
         }
-    };
 
-    /**
-     * 设置IP和端口地址,连接或断开
-     */
-    private void connect() {
-        if (client.isConnected()) {
-            // 断开连接
-            client.disconnect();
-        } else {
-            try {
-                client.connect("10.1.10.17", 8080);
-            } catch (NumberFormatException e) {
-                Log.e("error","端口错误");
-                e.printStackTrace();
-            }
+        @Override
+        public void onDisconnect(int code, String reason) {
+            Log.e("xxx", String.format("Disconnected! Code: %d Reason: %s", code, reason));
         }
-    }
 
-    /**
-     * 发送数据
-     */
-    private void sendStr(String data) {
-        if (client==null||!client.isConnected()){
-            connect();
+        @Override
+        public void onError(Exception error) {
+            Log.e("xxx", "Error!", error);
         }
-        try {
-            client.getTransceiver().send(data);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
+    }, extraHeaders);
+
+
 
 
     private void watchFlagsFromPreference() {
