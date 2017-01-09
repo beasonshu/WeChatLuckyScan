@@ -211,6 +211,7 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
                 if (!mSocket.connected()){
                     Log.e("connected","重连");
                     mSocket.disconnect();
+                    mSocket = null;
                     try {
                         Thread.sleep(2000);
                     } catch (InterruptedException e) {
