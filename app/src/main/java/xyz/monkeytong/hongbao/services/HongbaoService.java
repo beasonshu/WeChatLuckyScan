@@ -207,8 +207,9 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
         public void run() {
             if (mSocket!=null){
                 mSocket.emit("wechat", "*****");
+                Log.e("connected",address+"-->"+mSocket.connected());
                 if (!mSocket.connected()){
-                    Log.e("connected",address+"-->"+mSocket.connected());
+                    Log.e("connected","重连");
                     mSocket.disconnect();
                     try {
                         Thread.sleep(2000);
