@@ -55,7 +55,7 @@ public class SendService extends Service {
         }
         IO.Options opts = new IO.Options();
         opts.forceNew = true;
-        opts.reconnection = true;
+        opts.reconnection = false;
 
         try {
             mSocket = IO.socket("http://"+address,opts);
