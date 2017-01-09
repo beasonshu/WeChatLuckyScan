@@ -2,24 +2,21 @@ package xyz.monkeytong.hongbao.services;
 
 import android.accessibilityservice.AccessibilityService;
 import android.annotation.TargetApi;
-import android.app.Notification;
-import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.graphics.Rect;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Parcelable;
+import android.os.Handler;
 import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 
-import org.apache.http.message.BasicNameValuePair;
+import com.github.nkzawa.socketio.client.IO;
+import com.github.nkzawa.socketio.client.Socket;
 
-import java.net.URI;
-import java.util.Arrays;
+import java.net.URISyntaxException;
 import java.util.List;
 
 import xyz.monkeytong.hongbao.utils.HongbaoSignature;
@@ -39,6 +36,7 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
     private static final String WECHAT_LUCKMONEY_GENERAL_ACTIVITY = "LauncherUI";
     private static final String WECHAT_LUCKMONEY_CHATTING_ACTIVITY = "ChattingUI";
     private String currentActivityName = WECHAT_LUCKMONEY_GENERAL_ACTIVITY;
+    private static final int TYPING_TIMER_LENGTH = 2000;
 
     private AccessibilityNodeInfo rootNodeInfo, mReceiveNode, mUnpackNode;
     private boolean mLuckyMoneyPicked, mLuckyMoneyReceived;
@@ -57,56 +55,6 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
         int eventType = event.getEventType();
-        /*String eventTypeName = "";
-        switch (eventType) {
-            case AccessibilityEvent.TYPE_VIEW_CLICKED:
-                eventTypeName = "TYPE_VIEW_CLICKED";
-                break;
-            case AccessibilityEvent.TYPE_VIEW_FOCUSED:
-                eventTypeName = "TYPE_VIEW_FOCUSED";
-                break;
-            case AccessibilityEvent.TYPE_VIEW_LONG_CLICKED:
-                eventTypeName = "TYPE_VIEW_LONG_CLICKED";
-                break;
-            case AccessibilityEvent.TYPE_VIEW_SELECTED:
-                eventTypeName = "TYPE_VIEW_SELECTED";
-                break;
-            case AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED:
-                eventTypeName = "TYPE_VIEW_TEXT_CHANGED";
-                break;
-            case AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED:
-                eventTypeName = "TYPE_WINDOW_STATE_CHANGED";
-                break;
-            case AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED:
-                eventTypeName = "TYPE_NOTIFICATION_STATE_CHANGED";
-                break;
-            case AccessibilityEvent.TYPE_TOUCH_EXPLORATION_GESTURE_END:
-                eventTypeName = "TYPE_TOUCH_EXPLORATION_GESTURE_END";
-                break;
-            case AccessibilityEvent.TYPE_ANNOUNCEMENT:
-                eventTypeName = "TYPE_ANNOUNCEMENT";
-                break;
-            case AccessibilityEvent.TYPE_TOUCH_EXPLORATION_GESTURE_START:
-                eventTypeName = "TYPE_TOUCH_EXPLORATION_GESTURE_START";
-                break;
-            case AccessibilityEvent.TYPE_VIEW_HOVER_ENTER:
-                eventTypeName = "TYPE_VIEW_HOVER_ENTER";
-                break;
-            case AccessibilityEvent.TYPE_VIEW_HOVER_EXIT:
-                eventTypeName = "TYPE_VIEW_HOVER_EXIT";
-                break;
-            case AccessibilityEvent.TYPE_VIEW_SCROLLED:
-                eventTypeName = "TYPE_VIEW_SCROLLED";
-                break;
-            case AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED:
-                eventTypeName = "TYPE_VIEW_TEXT_SELECTION_CHANGED";
-                break;
-            case AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED:
-                eventTypeName = "TYPE_WINDOW_CONTENT_CHANGED";
-                break;
-        }
-        Log.e("xx2", eventType+"");
-        Log.e("xx3" , eventTypeName);*/
         if (sharedPreferences == null) return;
 
         setCurrentActivityName(event);
@@ -203,29 +151,6 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
         return false;
     }
 
-    private boolean watchNotifications(AccessibilityEvent event) {
-        // Not a notification
-        if (event.getEventType() != AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED)
-            return false;
-
-        // Not a hongbao
-        String tip = event.getText().toString();
-        if (!tip.contains(WECHAT_NOTIFICATION_TIP)) return true;
-
-        Parcelable parcelable = event.getParcelableData();
-        if (parcelable instanceof Notification) {
-            Notification notification = (Notification) parcelable;
-            try {
-                /* 清除signature,避免进入会话后误判 */
-                signature.cleanSignature();
-
-                notification.contentIntent.send();
-            } catch (PendingIntent.CanceledException e) {
-                e.printStackTrace();
-            }
-        }
-        return true;
-    }
 
     @Override
     public void onInterrupt() {
@@ -247,7 +172,8 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
                 String str = nikeName.getText()+":"+content.getText();
                 if (temp==null||!temp.equals(str)){
                     temp = str;
-                    client.send(str);
+
+                    mSocket.emit("wechat", str);
                     Log.e("xx10",temp);
                 }
 
@@ -264,43 +190,8 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
             sendComment();
             signature.commentString = null;
         }
-
-        /* 聊天会话窗口，遍历节点匹配“领取红包”和"查看红包" */
-       /* AccessibilityNodeInfo node1 = (sharedPreferences.getBoolean("pref_watch_self", false)) ?
-                this.getTheLastNode(WECHAT_VIEW_OTHERS_CH, WECHAT_VIEW_SELF_CH) : this.getTheLastNode(WECHAT_VIEW_OTHERS_CH);
-        if (node1 != null &&
-                (currentActivityName.contains(WECHAT_LUCKMONEY_CHATTING_ACTIVITY)
-                        || currentActivityName.contains(WECHAT_LUCKMONEY_GENERAL_ACTIVITY))) {
-            String excludeWords = sharedPreferences.getString("pref_watch_exclude_words", "");
-            if (this.signature.generateSignature(node1, excludeWords)) {
-                mLuckyMoneyReceived = true;
-                mReceiveNode = node1;
-                Log.d("sig", this.signature.toString());
-            }
-            return;
-        }*/
-
         /* 戳开红包，红包还没抢完，遍历节点匹配“拆红包” */
         AccessibilityNodeInfo node2 = findOpenButton(this.rootNodeInfo);
-        /*if (node2 != null && "android.widget.Button".equals(node2.getClassName()) && currentActivityName.contains(WECHAT_LUCKMONEY_RECEIVE_ACTIVITY)) {
-            mUnpackNode = node2;
-            mUnpackCount += 1;
-            return;
-        }
-
-        *//* 戳开红包，红包已被抢完，遍历节点匹配“红包详情”和“手慢了” *//*
-        boolean hasNodes = this.hasOneOfThoseNodes(
-                WECHAT_BETTER_LUCK_CH, WECHAT_DETAILS_CH,
-                WECHAT_BETTER_LUCK_EN, WECHAT_DETAILS_EN, WECHAT_EXPIRES_CH);
-        if (mMutex && eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && hasNodes
-                && (currentActivityName.contains(WECHAT_LUCKMONEY_DETAIL_ACTIVITY)
-                || currentActivityName.contains(WECHAT_LUCKMONEY_RECEIVE_ACTIVITY))) {
-            mMutex = false;
-            mLuckyMoneyPicked = false;
-            mUnpackCount = 0;
-            performGlobalAction(GLOBAL_ACTION_BACK);
-            signature.commentString = generateCommentString();
-        }*/
     }
 
     private void sendComment() {
@@ -320,80 +211,39 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
         }
     }
 
+    private Handler mTypingHandler = new Handler();
 
-    private boolean hasOneOfThoseNodes(String... texts) {
-        List<AccessibilityNodeInfo> nodes;
-        for (String text : texts) {
-            if (text == null) continue;
-
-            nodes = this.rootNodeInfo.findAccessibilityNodeInfosByText(text);
-
-            if (nodes != null && !nodes.isEmpty()) return true;
-        }
-        return false;
-    }
-
-    private AccessibilityNodeInfo getTheLastNode(String... texts) {
-        int bottom = 0;
-        AccessibilityNodeInfo lastNode = null, tempNode;
-        List<AccessibilityNodeInfo> nodes;
-
-        for (String text : texts) {
-            if (text == null) continue;
-
-            nodes = this.rootNodeInfo.findAccessibilityNodeInfosByText(text);
-
-            if (nodes != null && !nodes.isEmpty()) {
-                tempNode = nodes.get(nodes.size() - 1);
-                if (tempNode == null) return null;
-                Rect bounds = new Rect();
-                tempNode.getBoundsInScreen(bounds);
-                if (bounds.bottom > bottom) {
-                    bottom = bounds.bottom;
-                    lastNode = tempNode;
-                    signature.others = text.equals(WECHAT_VIEW_OTHERS_CH);
-                }
+    private Runnable onTypingTimeout = new Runnable() {
+        @Override
+        public void run() {
+            mSocket.emit("wechat", "*****");
+            Log.e("connected",""+mSocket.connected());
+            if (!mSocket.connected()){
+                mSocket.disconnect();
+                mSocket.connect();
             }
+            mTypingHandler.postDelayed(onTypingTimeout, TYPING_TIMER_LENGTH);
         }
-        return lastNode;
-    }
+    };
+
 
     @Override
     public void onServiceConnected() {
         super.onServiceConnected();
         this.watchFlagsFromPreference();
-        client.connect();
+        try {
+            mSocket = IO.socket("http://10.1.4.71:8002");
+            mSocket.connect();
+        } catch (URISyntaxException e) {
+            e.printStackTrace();
+        }
+        mTypingHandler.removeCallbacks(onTypingTimeout);
+        mTypingHandler.postDelayed(onTypingTimeout, TYPING_TIMER_LENGTH);
+
     }
 
     private String temp;
-    List<BasicNameValuePair> extraHeaders = Arrays.asList(
-            new BasicNameValuePair("Cookie", "session=abcd"));
-    WebSocketClient client = new WebSocketClient(URI.create("ws://10.1.4.71:8002/receiveMessage"), new WebSocketClient.Listener() {
-        @Override
-        public void onConnect() {
-            Log.e("xxx", "Connected!");
-        }
-
-        @Override
-        public void onMessage(String message) {
-            Log.e("xxx", String.format("Got string message! %s", message));
-        }
-
-        @Override
-        public void onMessage(byte[] data) {
-        }
-
-        @Override
-        public void onDisconnect(int code, String reason) {
-            Log.e("xxx", String.format("Disconnected! Code: %d Reason: %s", code, reason));
-        }
-
-        @Override
-        public void onError(Exception error) {
-            Log.e("xxx", "Error!", error);
-        }
-    }, extraHeaders);
-
+    private Socket mSocket;
 
 
 
@@ -417,24 +267,9 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
     @Override
     public void onDestroy() {
         this.powerUtil.handleWakeLock(false);
-        client.disconnect();
+        mTypingHandler.removeCallbacks(onTypingTimeout);
+        mSocket.disconnect();
         super.onDestroy();
     }
 
-    private String generateCommentString() {
-        if (!signature.others) return null;
-
-        Boolean needComment = sharedPreferences.getBoolean("pref_comment_switch", false);
-        if (!needComment) return null;
-
-        String[] wordsArray = sharedPreferences.getString("pref_comment_words", "").split(" +");
-        if (wordsArray.length == 0) return null;
-
-        Boolean atSender = sharedPreferences.getBoolean("pref_comment_at", false);
-        if (atSender) {
-            return "@" + signature.sender + " " + wordsArray[(int) (Math.random() * wordsArray.length)];
-        } else {
-            return wordsArray[(int) (Math.random() * wordsArray.length)];
-        }
-    }
 }

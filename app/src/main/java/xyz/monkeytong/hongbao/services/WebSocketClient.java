@@ -62,11 +62,12 @@ public class WebSocketClient {
     }
 
     public void connect() {
-        if (mSocket!=null)
-        Log.e("isConnected",""+mSocket.isConnected());
+        Log.e("lx1","连接中1");
         if (mThread != null && mThread.isAlive()) {
             return;
         }
+
+        Log.e("lx","连接中");
 
         mThread = new Thread(new Runnable() {
             @Override
@@ -142,15 +143,18 @@ public class WebSocketClient {
 
                 } catch (EOFException ex) {
                     Log.d(TAG, "WebSocket EOF!", ex);
+                    disconnect();
                     mListener.onDisconnect(0, "EOF");
 
                 } catch (SSLException ex) {
                     // Connection reset by peer
                     Log.d(TAG, "Websocket SSL error!", ex);
+                    disconnect();
                     mListener.onDisconnect(0, "SSL");
 
                 } catch (Exception ex) {
                     Log.d(TAG, "Exception", ex);
+                    disconnect();
                     mListener.onError(ex);
                 }
             }
@@ -166,6 +170,7 @@ public class WebSocketClient {
                     try {
                         mSocket.close();
                         mSocket = null;
+                        mThread = null;
                     } catch (IOException ex) {
                         Log.d(TAG, "Error while disconnecting", ex);
                         mListener.onError(ex);
