@@ -3,6 +3,7 @@ package xyz.monkeytong.hongbao.services;
 import android.accessibilityservice.AccessibilityService;
 import android.annotation.TargetApi;
 import android.content.ComponentName;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
@@ -13,10 +14,7 @@ import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 
-import com.github.nkzawa.socketio.client.IO;
-import com.github.nkzawa.socketio.client.Socket;
 
-import java.net.URISyntaxException;
 import java.util.List;
 
 import xyz.monkeytong.hongbao.utils.HongbaoSignature;
@@ -160,8 +158,7 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
                 String str = nikeName.getText()+":"+content.getText();
                 if (temp==null||!temp.equals(str)){
                     temp = str;
-
-                    mSocket.emit("wechat", str);
+                    sendMsg(str);
                     Log.e("xx10",temp);
                 }
 
@@ -199,62 +196,31 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
         }
     }
 
-    private Handler mTypingHandler = new Handler();
-    private String address;
 
-    private Runnable onTypingTimeout = new Runnable() {
-        @Override
-        public void run() {
-            if (mSocket!=null){
-                mSocket.emit("wechat", "*****");
-                Log.e("connected",address+"-->"+mSocket.connected());
-                if (!mSocket.connected()){
-                    Log.e("connected","重连");
-                    mSocket.disconnect();
-                    mSocket = null;
-                    try {
-                        Thread.sleep(2000);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    init();
-                }
-            }
-            mTypingHandler.postDelayed(onTypingTimeout, TYPING_TIMER_LENGTH);
+
+    private void sendMsg(String msg){
+        Intent mIntent = new Intent(this,SendService.class);
+        if (msg!=null){
+            mIntent.putExtra("chat",msg);
         }
-    };
-
+        startService(mIntent);
+    }
 
     @Override
     public void onServiceConnected() {
         super.onServiceConnected();
         this.watchFlagsFromPreference();
-        init();
-        mTypingHandler.removeCallbacks(onTypingTimeout);
-        mTypingHandler.postDelayed(onTypingTimeout, TYPING_TIMER_LENGTH);
-
+        sendMsg(null);
     }
 
-    private void init() {
-        try {
-            mSocket = IO.socket("http://"+address);
-            mSocket.connect();
-        } catch (URISyntaxException e) {
-            e.printStackTrace();
-        }
-    }
 
     private String temp;
-    private Socket mSocket;
 
 
 
     private void watchFlagsFromPreference() {
         sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
         sharedPreferences.registerOnSharedPreferenceChangeListener(this);
-        address = sharedPreferences.getString("pref_comment_words","10.1.4.71:8002");
-        Log.e("address",address+"---");
-
         this.powerUtil = new PowerUtil(this);
         Boolean watchOnLockFlag = sharedPreferences.getBoolean("pref_watch_on_lock", false);
         this.powerUtil.handleWakeLock(watchOnLockFlag);
@@ -271,10 +237,6 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
     @Override
     public void onDestroy() {
         this.powerUtil.handleWakeLock(false);
-        mTypingHandler.removeCallbacks(onTypingTimeout);
-        if (mSocket!=null&&mSocket.connected()){
-            mSocket.disconnect();
-        }
         super.onDestroy();
     }
 
