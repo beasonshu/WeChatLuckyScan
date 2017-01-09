@@ -23,25 +23,15 @@ import xyz.monkeytong.hongbao.utils.HongbaoSignature;
 import xyz.monkeytong.hongbao.utils.PowerUtil;
 
 public class HongbaoService extends AccessibilityService implements SharedPreferences.OnSharedPreferenceChangeListener {
-    private static final String WECHAT_DETAILS_EN = "Details";
-    private static final String WECHAT_DETAILS_CH = "红包详情";
-    private static final String WECHAT_BETTER_LUCK_EN = "Better luck next time!";
-    private static final String WECHAT_BETTER_LUCK_CH = "手慢了";
-    private static final String WECHAT_EXPIRES_CH = "已超过24小时";
-    private static final String WECHAT_VIEW_SELF_CH = "查看红包";
-    private static final String WECHAT_VIEW_OTHERS_CH = "领取红包";
     private static final String WECHAT_NOTIFICATION_TIP = "[微信红包]";
-    private static final String WECHAT_LUCKMONEY_RECEIVE_ACTIVITY = "LuckyMoneyReceiveUI";
-    private static final String WECHAT_LUCKMONEY_DETAIL_ACTIVITY = "LuckyMoneyDetailUI";
     private static final String WECHAT_LUCKMONEY_GENERAL_ACTIVITY = "LauncherUI";
-    private static final String WECHAT_LUCKMONEY_CHATTING_ACTIVITY = "ChattingUI";
     private String currentActivityName = WECHAT_LUCKMONEY_GENERAL_ACTIVITY;
     private static final int TYPING_TIMER_LENGTH = 2000;
 
     private AccessibilityNodeInfo rootNodeInfo, mReceiveNode, mUnpackNode;
     private boolean mLuckyMoneyPicked, mLuckyMoneyReceived;
     private int mUnpackCount = 0;
-    private boolean mMutex = false, mListMutex = false, mChatMutex = false;
+    private boolean  mListMutex = false, mChatMutex = false;
     private HongbaoSignature signature = new HongbaoSignature();
 
     private PowerUtil powerUtil;
@@ -84,7 +74,6 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
 
         /* 如果已经接收到红包并且还没有戳开 */
         if (mLuckyMoneyReceived && !mLuckyMoneyPicked && (mReceiveNode != null)) {
-            mMutex = true;
 
             mReceiveNode.getParent().performAction(AccessibilityNodeInfo.ACTION_CLICK);
             mLuckyMoneyReceived = false;
@@ -99,7 +88,6 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
                             try {
                                 mUnpackNode.performAction(AccessibilityNodeInfo.ACTION_CLICK);
                             } catch (Exception e) {
-                                mMutex = false;
                                 mLuckyMoneyPicked = false;
                                 mUnpackCount = 0;
                             }
@@ -212,15 +200,18 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
     }
 
     private Handler mTypingHandler = new Handler();
+    private String address;
 
     private Runnable onTypingTimeout = new Runnable() {
         @Override
         public void run() {
-            mSocket.emit("wechat", "*****");
-            Log.e("connected",""+mSocket.connected());
-            if (!mSocket.connected()){
-                mSocket.disconnect();
-                mSocket.connect();
+            if (mSocket!=null){
+                mSocket.emit("wechat", "*****");
+                Log.e("connected",address+"-->"+mSocket.connected());
+                if (!mSocket.connected()){
+                    mSocket.disconnect();
+                    mSocket.connect();
+                }
             }
             mTypingHandler.postDelayed(onTypingTimeout, TYPING_TIMER_LENGTH);
         }
@@ -232,7 +223,7 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
         super.onServiceConnected();
         this.watchFlagsFromPreference();
         try {
-            mSocket = IO.socket("http://10.1.4.71:8002");
+            mSocket = IO.socket("http://"+address);
             mSocket.connect();
         } catch (URISyntaxException e) {
             e.printStackTrace();
@@ -250,6 +241,8 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
     private void watchFlagsFromPreference() {
         sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
         sharedPreferences.registerOnSharedPreferenceChangeListener(this);
+        address = sharedPreferences.getString("pref_comment_words","10.1.4.71:8002");
+        Log.e("address",address+"---");
 
         this.powerUtil = new PowerUtil(this);
         Boolean watchOnLockFlag = sharedPreferences.getBoolean("pref_watch_on_lock", false);
@@ -268,7 +261,9 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
     public void onDestroy() {
         this.powerUtil.handleWakeLock(false);
         mTypingHandler.removeCallbacks(onTypingTimeout);
-        mSocket.disconnect();
+        if (mSocket!=null&&mSocket.connected()){
+            mSocket.disconnect();
+        }
         super.onDestroy();
     }
 
