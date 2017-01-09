@@ -210,7 +210,12 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
                 Log.e("connected",address+"-->"+mSocket.connected());
                 if (!mSocket.connected()){
                     mSocket.disconnect();
-                    mSocket.connect();
+                    try {
+                        Thread.sleep(2000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    init();
                 }
             }
             mTypingHandler.postDelayed(onTypingTimeout, TYPING_TIMER_LENGTH);
@@ -222,15 +227,19 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
     public void onServiceConnected() {
         super.onServiceConnected();
         this.watchFlagsFromPreference();
+        init();
+        mTypingHandler.removeCallbacks(onTypingTimeout);
+        mTypingHandler.postDelayed(onTypingTimeout, TYPING_TIMER_LENGTH);
+
+    }
+
+    private void init() {
         try {
             mSocket = IO.socket("http://"+address);
             mSocket.connect();
         } catch (URISyntaxException e) {
             e.printStackTrace();
         }
-        mTypingHandler.removeCallbacks(onTypingTimeout);
-        mTypingHandler.postDelayed(onTypingTimeout, TYPING_TIMER_LENGTH);
-
     }
 
     private String temp;
