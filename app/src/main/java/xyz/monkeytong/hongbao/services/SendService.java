@@ -34,13 +34,6 @@ public class SendService extends Service {
                 Log.e("connected",address+"-->"+mSocket.connected());
                 if (!mSocket.connected()){
                     Log.e("connected","重连");
-                    mSocket.disconnect();
-                    mSocket = null;
-                    try {
-                        Thread.sleep(2000);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
                     init();
                 }
             }
@@ -77,6 +70,7 @@ public class SendService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+
         if (mSocket==null||!mSocket.connected()){
             SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
             address = preferences.getString("pref_comment_words","10.1.4.71:8002");
