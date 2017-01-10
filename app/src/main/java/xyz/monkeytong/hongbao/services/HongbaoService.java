@@ -3,20 +3,20 @@ package xyz.monkeytong.hongbao.services;
 import android.accessibilityservice.AccessibilityService;
 import android.annotation.TargetApi;
 import android.content.ComponentName;
-import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
 import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 
-
+import java.net.URISyntaxException;
 import java.util.List;
 
+import io.socket.client.IO;
+import io.socket.client.Socket;
 import xyz.monkeytong.hongbao.utils.HongbaoSignature;
 import xyz.monkeytong.hongbao.utils.PowerUtil;
 
@@ -147,19 +147,21 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
     private AccessibilityNodeInfo findOpenButton(AccessibilityNodeInfo node) {
         if (node == null)
             return null;
-        List<AccessibilityNodeInfo> list = node.findAccessibilityNodeInfosByViewId("com.tencent.mm:id/a1d");
+        List<AccessibilityNodeInfo> list = node.findAccessibilityNodeInfosByViewId("com.tencent.mm:id/a1k");
         if (!list.isEmpty()){
             AccessibilityNodeInfo parent = list.get(0);
-            List<AccessibilityNodeInfo> nickNode = parent.findAccessibilityNodeInfosByViewId("com.tencent.mm:id/ia");
-            List<AccessibilityNodeInfo> msgNode = parent.findAccessibilityNodeInfosByViewId("com.tencent.mm:id/ib");
+
+            List<AccessibilityNodeInfo> nickNode = parent.findAccessibilityNodeInfosByViewId("com.tencent.mm:id/i9");
+            List<AccessibilityNodeInfo> msgNode = parent.findAccessibilityNodeInfosByViewId("com.tencent.mm:id/i_");
             if (!nickNode.isEmpty()&&!msgNode.isEmpty()){
                 AccessibilityNodeInfo nikeName = nickNode.get(nickNode.size()-1);
                 AccessibilityNodeInfo content = msgNode.get(msgNode.size()-1);
-                String str = nikeName.getText()+":"+content.getText();
+                String str = nickNode.size()==msgNode.size()?nikeName.getText()+":"+content.getText()
+                        :content.getText().toString();
                 if (temp==null||!temp.equals(str)){
                     temp = str;
-                    sendMsg(str);
-                    Log.e("xx10",temp);
+                    Log.e("xx10",str);
+                    mSocket.emit("wechat", str);
                 }
 
             }
@@ -196,31 +198,38 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
         }
     }
 
+    private String address;
 
 
-    private void sendMsg(String msg){
-        Intent mIntent = new Intent(this,SendService.class);
-        if (msg!=null){
-            mIntent.putExtra("chat",msg);
-        }
-        startService(mIntent);
-    }
 
     @Override
     public void onServiceConnected() {
         super.onServiceConnected();
         this.watchFlagsFromPreference();
-        sendMsg(null);
+        init();
+
     }
 
+    private void init() {
+        try {
+            mSocket = IO.socket("http://"+address);
+            mSocket.connect();
+        } catch (URISyntaxException e) {
+            e.printStackTrace();
+        }
+    }
 
     private String temp;
+    private Socket mSocket;
 
 
 
     private void watchFlagsFromPreference() {
         sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
         sharedPreferences.registerOnSharedPreferenceChangeListener(this);
+        address = sharedPreferences.getString("pref_comment_words","10.1.4.71:8002");
+        Log.e("address",address+"---");
+
         this.powerUtil = new PowerUtil(this);
         Boolean watchOnLockFlag = sharedPreferences.getBoolean("pref_watch_on_lock", false);
         this.powerUtil.handleWakeLock(watchOnLockFlag);
@@ -237,6 +246,9 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
     @Override
     public void onDestroy() {
         this.powerUtil.handleWakeLock(false);
+        if (mSocket!=null&&mSocket.connected()){
+            mSocket.disconnect();
+        }
         super.onDestroy();
     }
 

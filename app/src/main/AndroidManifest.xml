@@ -41,9 +41,6 @@
                        android:resource="@xml/accessible_service_config"/>
         </service>
 
-        <service android:name=".services.SendService"
-            android:exported="false"/>
-
     </application>
 
 </manifest>
