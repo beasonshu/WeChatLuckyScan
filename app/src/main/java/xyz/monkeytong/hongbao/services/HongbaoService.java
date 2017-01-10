@@ -156,7 +156,7 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
             if (!nickNode.isEmpty()&&!msgNode.isEmpty()){
                 AccessibilityNodeInfo nikeName = nickNode.get(nickNode.size()-1);
                 AccessibilityNodeInfo content = msgNode.get(msgNode.size()-1);
-                String str = nickNode.size()==msgNode.size()?nikeName.getText()+":"+content.getText()
+                String str = !content.getText().toString().endsWith("撤回了一条消息")?nikeName.getText()+":"+content.getText()
                         :content.getText().toString();
                 if (temp==null||!temp.equals(str)){
                     temp = str;
