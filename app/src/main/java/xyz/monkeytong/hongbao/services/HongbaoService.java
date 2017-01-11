@@ -7,6 +7,7 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
@@ -24,7 +25,7 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
     private static final String WECHAT_NOTIFICATION_TIP = "[微信红包]";
     private static final String WECHAT_LUCKMONEY_GENERAL_ACTIVITY = "LauncherUI";
     private String currentActivityName = WECHAT_LUCKMONEY_GENERAL_ACTIVITY;
-    private static final int TYPING_TIMER_LENGTH = 2000;
+    private static final int TYPING_TIMER_LENGTH = 10000;
 
     private AccessibilityNodeInfo rootNodeInfo, mReceiveNode, mUnpackNode;
     private boolean mLuckyMoneyPicked, mLuckyMoneyReceived;
@@ -207,7 +208,8 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
         super.onServiceConnected();
         this.watchFlagsFromPreference();
         init();
-
+        mTypingHandler.removeCallbacks(onTypingTimeout);
+        mTypingHandler.postDelayed(onTypingTimeout, TYPING_TIMER_LENGTH);
     }
 
     private void init() {
@@ -221,6 +223,27 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
 
     private String temp;
     private Socket mSocket;
+    private Handler mTypingHandler = new Handler();
+    private Runnable onTypingTimeout = new Runnable() {
+        @Override
+        public void run() {
+            if (mSocket!=null){
+                Log.e("connected",address+"-->"+mSocket.connected());
+                if (!mSocket.connected()){
+                    Log.e("connected","重连");
+                    mSocket.disconnect();
+                    mSocket = null;
+                    try {
+                        Thread.sleep(2000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    init();
+                }
+            }
+            mTypingHandler.postDelayed(onTypingTimeout, TYPING_TIMER_LENGTH);
+        }
+    };
 
 
 
@@ -246,6 +269,10 @@ public class HongbaoService extends AccessibilityService implements SharedPrefer
     @Override
     public void onDestroy() {
         this.powerUtil.handleWakeLock(false);
+        if (mSocket!=null&&mSocket.connected()){
+            mSocket.disconnect();
+        }
+        mTypingHandler.removeCallbacks(onTypingTimeout);
         if (mSocket!=null&&mSocket.connected()){
             mSocket.disconnect();
         }
