@@ -3,6 +3,9 @@
 buildscript {
     repositories {
         jcenter()
+        maven {
+            url "http://maven.apache.org/POM/4.0.0"
+        }
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:2.2.3'
@@ -12,8 +15,11 @@ buildscript {
     }
 }
 
+
 allprojects {
     repositories {
         jcenter()
+
+        maven { url "https://jitpack.io" }
     }
 }
